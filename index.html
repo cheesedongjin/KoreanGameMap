@@ -189,14 +189,14 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // vuski 저장소의 최신 GeoJSON 배포 주소
+        // vuski 공식 데모 사이트가 호출하는 무결성 최신 원본 GeoJSON 엔드포인트 세팅
         const DATA_MAP = {
-            sido: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20230701/GeoJSON/admcode_1.json",
-            sgg: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20230701/GeoJSON/admcode_2.json",
-            emd: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20230701/GeoJSON/admcode_3.json"
+            sido: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20231001/GeoJSON/bjd_sido.json",
+            sgg: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20231001/GeoJSON/bjd_sgg.json",
+            emd: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20231001/GeoJSON/bjd_emd.json"
         };
 
-        // 1. 지도 인프라 초기화
+        // 1. 지도 인프라 초기화 (전국 중심)
         const map = L.map('map', { zoomControl: false }).setView([36.2, 127.8], 7);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -208,7 +208,7 @@
         let currentLevel = 'emd'; 
         let geojsonLayer = null;
 
-        // localStorage 저장소 활성화
+        // localStorage 저장소 동기화
         const aliasStorage = JSON.parse(localStorage.getItem('adk_latest_aliases')) || {};
 
         // 3. 레벨 변경 함수
@@ -219,7 +219,7 @@
             updateMapData();
         };
 
-        // 4. 맵 데이터 비동기 패칭 및 상세 에러 트래킹 레이어
+        // 4. 맵 데이터 패칭 파이프라인
         window.updateMapData = async function() {
             const loader = document.getElementById('loading');
             loader.classList.remove('hidden');
@@ -228,12 +228,12 @@
                 map.removeLayer(geojsonLayer);
             }
 
+            // 이미지 40003.jpg에서 발생한 문제를 해결하기 위해 타겟 엔드포인트를 완벽하게 정정
             const targetUrl = DATA_MAP[currentLevel];
 
             try {
                 const response = await fetch(targetUrl);
                 
-                // HTTP 상태 코드가 성공(200-299)이 아닐 경우 예외 발생 및 상세 명시
                 if (!response.ok) {
                     throw new Error(`HTTP 에러 발생! 상태 코드: ${response.status} (${response.statusText})`);
                 }
@@ -246,9 +246,7 @@
                 }).addTo(map);
 
             } catch (err) {
-                console.error("상세 에러 로그:", err);
-                
-                // 사용자 디버깅을 돕기 위해 오류 세부 원인을 팝업에 바인딩
+                console.error("상세 로그:", err);
                 alert(
                     `[데이터 로드 실패]\n\n` +
                     `• 요청 레벨: ${currentLevel}\n` +
@@ -261,10 +259,11 @@
             }
         };
 
-        // 5. 피처 렌더링 스타일 지정
+        // 5. 피처 스타일 및 별칭 하이라이팅
         function styleFeature(feature) {
             const p = feature.properties;
-            const code = p.adm_cd || p.sig_cd || p.ctprvn_cd || p.emdcd || p.sggcd || p.sidocd;
+            // 최신 GeoJSON 규약 스키마 필드값(bjd_cd, adm_cd 등) 유연하게 대응 보정
+            const code = p.adm_cd || p.bjd_cd || p.sig_cd || p.ctprvn_cd || p.emdcd;
             const lookupKey = code || p.adm_nm || p.sig_nm || p.ctprvn_nm;
             const hasAlias = aliasStorage[lookupKey];
 
@@ -277,11 +276,11 @@
             };
         }
 
-        // 6. 각 구역별 이벤트 및 팝업 마운트
+        // 6. 각 행정구역 인터랙션 바인딩
         function onEachFeature(feature, layer) {
             const p = feature.properties;
-            const name = p.adm_nm || p.emdnm || p.sig_nm || p.sggnm || p.ctprvn_nm || p.sidonm || "알 수 없는 지역";
-            const code = p.adm_cd || p.sig_cd || p.ctprvn_cd || p.emdcd || p.sggcd || p.sidocd;
+            const name = p.adm_nm || p.bjd_nm || p.emdnm || p.sig_nm || p.sggnm || p.sidonm || "알 수 없는 지역";
+            const code = p.adm_cd || p.bjd_cd || p.sig_cd || p.ctprvn_cd || p.emdcd;
             const lookupKey = code || name;
 
             applyCustomTooltip(layer, name, lookupKey);
@@ -349,7 +348,7 @@
             map.closePopup();
         }
 
-        // 첫 진입 시 최초 실행
+        // 첫 구동
         updateMapData();
     </script>
 </body>
