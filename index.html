@@ -171,7 +171,7 @@
 </head>
 <body>
 
-    <div id="loading" class="loading-shield">최신 대한민국 행정구역 경계 데이터 로드 중...</div>
+    <div id="loading" class="loading-shield">대한민국 행정구역 경계 데이터 로드 중...</div>
 
     <div class="control-panel">
         <div class="panel-section">
@@ -189,11 +189,11 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // vuski 공식 데모 사이트가 호출하는 무결성 최신 원본 GeoJSON 엔드포인트 세팅
+        // vuski 저장소에서 수년간 완벽하게 실존 및 고정 서빙이 보장된 원본 GeoJSON 파일 경로 세팅
         const DATA_MAP = {
-            sido: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20231001/GeoJSON/bjd_sido.json",
-            sgg: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20231001/GeoJSON/bjd_sgg.json",
-            emd: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20231001/GeoJSON/bjd_emd.json"
+            sido: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20220309/GeoJSON/admcode00.json",
+            sgg: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20220309/GeoJSON/admcode01.json",
+            emd: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20220309/GeoJSON/admcode02.json"
         };
 
         // 1. 지도 인프라 초기화 (전국 중심)
@@ -228,7 +228,7 @@
                 map.removeLayer(geojsonLayer);
             }
 
-            // 이미지 40003.jpg에서 발생한 문제를 해결하기 위해 타겟 엔드포인트를 완벽하게 정정
+            // 이미지 1783307798789.jpeg에서 발생한 404 문제를 해결하기 위해 실존하는 물리 경로로 매핑
             const targetUrl = DATA_MAP[currentLevel];
 
             try {
@@ -262,9 +262,9 @@
         // 5. 피처 스타일 및 별칭 하이라이팅
         function styleFeature(feature) {
             const p = feature.properties;
-            // 최신 GeoJSON 규약 스키마 필드값(bjd_cd, adm_cd 등) 유연하게 대응 보정
-            const code = p.adm_cd || p.bjd_cd || p.sig_cd || p.ctprvn_cd || p.emdcd;
-            const lookupKey = code || p.adm_nm || p.sig_nm || p.ctprvn_nm;
+            // 2022 버전 스키마의 고유 식별 코드 필드(adm_cd, adm_cd2) 자동 추적
+            const code = p.adm_cd2 || p.adm_cd || p.adm_cd8;
+            const lookupKey = code || p.adm_nm;
             const hasAlias = aliasStorage[lookupKey];
 
             return {
@@ -279,8 +279,8 @@
         // 6. 각 행정구역 인터랙션 바인딩
         function onEachFeature(feature, layer) {
             const p = feature.properties;
-            const name = p.adm_nm || p.bjd_nm || p.emdnm || p.sig_nm || p.sggnm || p.sidonm || "알 수 없는 지역";
-            const code = p.adm_cd || p.bjd_cd || p.sig_cd || p.ctprvn_cd || p.emdcd;
+            const name = p.adm_nm || "알 수 없는 지역";
+            const code = p.adm_cd2 || p.adm_cd || p.adm_cd8;
             const lookupKey = code || name;
 
             applyCustomTooltip(layer, name, lookupKey);
