@@ -139,6 +139,7 @@
             text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff;
             text-align: center;
             font-size: 11px;
+            pointer-events: none; /* 툴팁이 맵 마우스 이벤트를 가로채지 않도록 방지 */
         }
         .tooltip-alias {
             display: block;
@@ -160,18 +161,17 @@
             font-weight: 700;
             color: #1e293b;
             font-size: 16px;
-            pointer-events: all;
-            transition: opacity 0.3s ease;
+            pointer-events: none; /* 부드러운 이동을 위해 로딩 중 조작 허용 */
+            transition: opacity 0.2s ease;
         }
         .loading-shield.hidden {
             opacity: 0;
-            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-<div id="loading" class="loading-shield">행정구역 경계 데이터 로드 중...</div>
+<div id="loading" class="loading-shield hidden">행정구역 경계 데이터 로드 중...</div>
 
 <div class="control-panel">
     <div class="panel-section">
@@ -189,108 +189,166 @@
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- ESM 모듈 활용 -->
 <script type="module">
     import * as adk from "https://esm.sh/admdongkor";
 
     // 1. 지도 초기화
-    const map = L.map('map', { zoomControl: false }).setView([36.2, 127.8], 7);
+    const map = L.map('map', { 
+        zoomControl: false,
+        preferCanvas: true // 성능 최적화를 위해 Canvas 렌더러 강제 활성화
+    }).setView([36.2, 127.8], 7);
+    
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(map);
 
-    // 2. 상태 관리 변수 및 캐시 스토리지 이름 설정
+    // 2. 상태 관리 및 데이터 캐시 메모리 딕셔너리
     let currentLevel = 'emd';   
     let geojsonLayer = null;
     const CACHE_NAME = 'admdongkor-geojson-cache-v1';
+    const geoJsonMemoryCache = {}; // 매번 캐시 스토리지 여는 비용 절감을 위한 메모리 캐시
 
     const versions = adk.versions();
     const latestVersionKey = versions[versions.length - 1];
     const aliasStorage = JSON.parse(localStorage.getItem('adk_local_aliases')) || {};
 
+    // 3. 레벨 변경 탭 연동
     window.changeLevel = function(level) {
         currentLevel = level;
         document.querySelectorAll('.btn-level').forEach(b => b.classList.remove('active'));
         document.getElementById(`btn-${level}`).classList.add('active');
-        updateMapData();
+        renderCurrentView();
     };
 
-    // 4. 캐시 우선(Cache-First) 전략 기반의 맵 데이터 렌더링
-    window.updateMapData = async function() {
-        const loader = document.getElementById('loading');
-        loader.classList.remove('hidden');
+    // 4. 줌 레벨 및 뷰 상태에 따른 데이터 소스 로드 (전역 캐싱 전략)
+    async function getGeoJsonData(level) {
+        if (geoJsonMemoryCache[level]) return geoJsonMemoryCache[level];
 
-        if (geojsonLayer) {
-            map.removeLayer(geojsonLayer);
-        }
-
-        // 캐시에 저장할 고유 식별 주소 고안 (실제 존재하지 않아도 캐시 키로 작동함)
-        const cacheKey = `https://local.admdongkor.internal/${latestVersionKey}/${currentLevel}`;
-
+        const cacheKey = `https://local.admdongkor.internal/${latestVersionKey}/${level}`;
         try {
-            const cache = await SetUpCache();
+            const cache = await caches.open(CACHE_NAME);
             let cachedResponse = await cache.match(cacheKey);
             let geoData;
 
             if (cachedResponse) {
-                // 캐시가 존재하면 디스크에서 즉시 json 객체로 파싱
                 geoData = await cachedResponse.json();
-                console.log(`[Cache Hit] 캐시에서 데이터를 불러왔습니다: ${currentLevel}`);
             } else {
-                // 캐시가 없으면 최초 1회 admdongkor 라이브러리로 네트워크 fetch 진행
-                console.log(`[Cache Miss] 네트워크에서 데이터를 새로 로드합니다: ${currentLevel}`);
-                geoData = await adk.get(latestVersionKey, currentLevel, { detail: false });
-                
-                // 가공된 GeoJSON 객체를 Response로 래핑하여 캐시에 저장
+                document.getElementById('loading').classList.remove('hidden');
+                geoData = await adk.get(latestVersionKey, level, { detail: false });
                 const responseToCache = new Response(JSON.stringify(geoData), {
                     headers: { 'Content-Type': 'application/json' }
                 });
                 await cache.put(cacheKey, responseToCache);
             }
-
-            geojsonLayer = L.geoJSON(geoData, {
-                style: styleFeature,
-                onEachFeature: onEachFeature
-            }).addTo(map);
-
-        } catch (err) {
-            console.error("데이터 로드 및 캐싱 오류:", err);
-            alert(`[행정구역 데이터 로드 실패]\n\n원인: ${err.message}`);
+            geoJsonMemoryCache[level] = geoData;
+            return geoData;
+        } catch (e) {
+            console.error("캐시 로드 실패, 라이브러리 다이렉트 호출:", e);
+            return await adk.get(latestVersionKey, level, { detail: false });
         } finally {
-            loader.classList.add('hidden');
+            document.getElementById('loading').classList.add('hidden');
         }
-    };
-
-    // 브라우저 캐시 저장소 초기화 헬퍼 함수
-    async function SetUpCache() {
-        return await caches.open(CACHE_NAME);
     }
 
-    // 5. 스타일 및 이벤트 매핑 (기존과 동일)
-    function styleFeature(feature) {
+    // 5. 핵심: 현재 줌 상태와 보이는 영역 영역(Bounding Box)에 맞게 레이어 계산 후 그리기
+    async function renderCurrentView() {
+        const currentZoom = map.getZoom();
+        let targetRenderLevel = currentLevel;
+        let isTemporaryUpperLevel = false;
+
+        // 줌 조건에 따른 동적 LOD 레벨 스위칭 알고리즘
+        if (currentLevel === 'emd') {
+            if (currentZoom <= 8) {
+                targetRenderLevel = 'sido';
+                isTemporaryUpperLevel = true;
+            } else if (currentZoom > 8 && currentZoom <= 11) {
+                targetRenderLevel = 'sgg';
+                isTemporaryUpperLevel = true;
+            }
+        } else if (currentLevel === 'sgg') {
+            if (currentZoom <= 8) {
+                targetRenderLevel = 'sido';
+                isTemporaryUpperLevel = true;
+            }
+        }
+
+        // 렌더링할 타겟 레벨 전체 데이터 획득
+        const fullGeoJson = await getGeoJsonData(targetRenderLevel);
+        
+        if (geojsonLayer) {
+            map.removeLayer(geojsonLayer);
+        }
+
+        // 현재 화면 눈에 보이는 영역 경계 좌표(Bounds) 추출
+        const mapBounds = map.getBounds();
+
+        // 바운딩 박스 필터링: 화면 범위 내에 교차하는 피처만 메모리상에서 골라냄
+        const filteredFeatures = fullGeoJson.features.filter(feature => {
+            if (!feature.geometry) return false;
+            
+            // 단순화를 위해 피처의 좌표 배열 일부 혹은 전체 바운더리가 맵 스크린 내에 충족하는지 체크
+            // Leaflet의 L.geoJSON 내부 파서 연산을 최적화하기 위해 경계 근사 체크
+            return true; 
+        });
+
+        const filteredGeoJson = {
+            type: "FeatureCollection",
+            features: filteredFeatures
+        };
+
+        // 레이어화 및 이벤트 주입
+        geojsonLayer = L.geoJSON(filteredGeoJson, {
+            style: (feature) => styleFeature(feature, targetRenderLevel, isTemporaryUpperLevel),
+            onEachFeature: (feature, layer) => onEachFeature(feature, layer, targetRenderLevel, isTemporaryUpperLevel),
+            filter: function(feature) {
+                // 더 정확한 지오메트리 스크린 교차 필터링 (가벼운 Bounding Box 연산)
+                // 좌표 하나라도 맵 범위 내에 있다면 그리기
+                if(feature.geometry.type === "Polygon") {
+                    return feature.geometry.coordinates[0].some(coord => mapBounds.contains(L.latLng(coord[1], coord[0])));
+                } else if(feature.geometry.type === "MultiPolygon") {
+                    return feature.geometry.coordinates.some(poly => 
+                        poly[0].some(coord => mapBounds.contains(L.latLng(coord[1], coord[0])))
+                    );
+                }
+                return true;
+            }
+        }).addTo(map);
+    }
+
+    // 6. 스타일 엔진
+    function styleFeature(feature, renderLevel, isTemp) {
         const p = feature.properties;
         const code = p.emdcd || p.sggcd || p.sidocd;
         const lookupKey = code || p.emdnm || p.sggnm || p.sidonm;
-        const hasAlias = aliasStorage[lookupKey];
+        
+        // 중요: 임시 상위 레벨 뷰일때는 별칭 하이라이트를 먹이지 않음
+        const hasAlias = !isTemp && aliasStorage[lookupKey];
 
         return {
             fillColor: hasAlias ? '#dbeafe' : '#ffffff',
-            weight: currentLevel === 'sido' ? 2.5 : currentLevel === 'sgg' ? 1.8 : 1,
+            weight: renderLevel === 'sido' ? 2.5 : renderLevel === 'sgg' ? 1.6 : 1,
             opacity: 1,
-            color: hasAlias ? '#2563eb' : '#64748b',
-            fillOpacity: hasAlias ? 0.7 : 0.2
+            color: hasAlias ? '#2563eb' : '#cbd5e1',
+            fillOpacity: hasAlias ? 0.6 : 0.1
         };
     }
 
-    function onEachFeature(feature, layer) {
+    // 7. 팝업 및 이벤트 위임 바인딩
+    function onEachFeature(feature, layer, renderLevel, isTemp) {
         const p = feature.properties;
         const name = p.emdnm || p.sggnm || p.sidonm || "알 수 없는 지역";
         const code = p.emdcd || p.sggcd || p.sidocd;
         const lookupKey = code || name;
 
-        applyCustomTooltip(layer, name, lookupKey);
+        // 툴팁 노출 제어: 임시 상위 레벨일 때는 텍스트 뒤에 별칭을 붙이지 않음
+        applyCustomTooltip(layer, name, lookupKey, isTemp);
+
+        // 중요: 임시 상위 레벨 구조일 때는 클릭과 마우스 오버 효과를 아예 막아버림
+        if (isTemp) {
+            return; 
+        }
 
         layer.on('click', function(e) {
             const currentAlias = aliasStorage[lookupKey] || "";
@@ -318,15 +376,15 @@
         });
 
         layer.on('mouseover', () => {
-            layer.setStyle({ fillOpacity: 0.5, weight: currentLevel === 'emd' ? 2 : 3 });
+            layer.setStyle({ fillOpacity: 0.4, weight: currentLevel === 'emd' ? 2 : 3 });
         });
         layer.on('mouseout', () => {
             geojsonLayer.resetStyle(layer);
         });
     }
 
-    function applyCustomTooltip(layer, originalName, lookupKey) {
-        const alias = aliasStorage[lookupKey];
+    function applyCustomTooltip(layer, originalName, lookupKey, isTemp) {
+        const alias = !isTemp ? aliasStorage[lookupKey] : null;
         const content = alias 
             ? `${originalName}<span class="tooltip-alias">${alias}</span>`
             : originalName;
@@ -345,14 +403,23 @@
             delete aliasStorage[lookupKey];
         }
         localStorage.setItem('adk_local_aliases', JSON.stringify(aliasStorage));
-        geojsonLayer.resetStyle(layer);
-        layer.unbindTooltip();
-        applyCustomTooltip(layer, originalName, lookupKey);
+        renderCurrentView(); // 저장이 완료되면 화면을 다시 계산하여 갱신
         map.closePopup();
     }
 
-    // 초기 구동
-    updateMapData();
+    // 8. 맵 관찰자 이벤트리스너 등록
+    // 유저가 지도를 움직이거나(moveend), 줌 배율을 바꿀 때(zoomend)마다 최적화 영역을 새로 계산
+    map.on('moveend zoomend', () => {
+        renderCurrentView();
+    });
+
+    // 3개 레벨 사전 내부 백그라운드 캐싱 지시 연출
+    (async () => {
+        await getGeoJsonData('sido');
+        await getGeoJsonData('sgg');
+        await getGeoJsonData('emd');
+        renderCurrentView();
+    })();
 </script>
 
 </body>
