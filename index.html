@@ -189,7 +189,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // vuski 저장소의 최신 무결성 GeoJSON 파일 경로 고정
+        // vuski 저장소의 최신 GeoJSON 배포 주소
         const DATA_MAP = {
             sido: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20230701/GeoJSON/admcode_1.json",
             sgg: "https://raw.githubusercontent.com/vuski/admdongkor/master/ver20230701/GeoJSON/admcode_2.json",
@@ -204,7 +204,7 @@
             attribution: '&copy; OpenStreetMap &copy; CARTO'
         }).addTo(map);
 
-        // 2. 상태 관리 변수 (시점 선택 제거, 고정 최신 컨텍스트 유지)
+        // 2. 상태 관리 변수
         let currentLevel = 'emd'; 
         let geojsonLayer = null;
 
@@ -219,7 +219,7 @@
             updateMapData();
         };
 
-        // 4. 맵 데이터 비동기 패칭 및 렌더링
+        // 4. 맵 데이터 비동기 패칭 및 상세 에러 트래킹 레이어
         window.updateMapData = async function() {
             const loader = document.getElementById('loading');
             loader.classList.remove('hidden');
@@ -228,10 +228,15 @@
                 map.removeLayer(geojsonLayer);
             }
 
+            const targetUrl = DATA_MAP[currentLevel];
+
             try {
-                const targetUrl = DATA_MAP[currentLevel];
                 const response = await fetch(targetUrl);
-                if (!response.ok) throw new Error("네트워크 모델 피드백 실패");
+                
+                // HTTP 상태 코드가 성공(200-299)이 아닐 경우 예외 발생 및 상세 명시
+                if (!response.ok) {
+                    throw new Error(`HTTP 에러 발생! 상태 코드: ${response.status} (${response.statusText})`);
+                }
                 
                 const geoData = await response.json();
 
@@ -241,14 +246,22 @@
                 }).addTo(map);
 
             } catch (err) {
-                console.error("데이터 로딩 오류:", err);
-                alert("최신 경계 데이터를 가져오지 못했습니다. 네트워크 상태를 확인해 주세요.");
+                console.error("상세 에러 로그:", err);
+                
+                // 사용자 디버깅을 돕기 위해 오류 세부 원인을 팝업에 바인딩
+                alert(
+                    `[데이터 로드 실패]\n\n` +
+                    `• 요청 레벨: ${currentLevel}\n` +
+                    `• 요 청 주 소: ${targetUrl}\n` +
+                    `• 에러 메시지: ${err.message}\n\n` +
+                    `네트워크 단절, CORS 거부, 또는 주소 변경 여부를 확인해 주세요.`
+                );
             } finally {
                 loader.classList.add('hidden');
             }
         };
 
-        // 5. 피처 렌더링 스타일 지정 (고유 코드를 키로 매핑하여 무결성 유지)
+        // 5. 피처 렌더링 스타일 지정
         function styleFeature(feature) {
             const p = feature.properties;
             const code = p.adm_cd || p.sig_cd || p.ctprvn_cd || p.emdcd || p.sggcd || p.sidocd;
@@ -289,7 +302,6 @@
 
                 layer.bindPopup(popupHtml, { className: 'alias-popup' }).openPopup(e.latlng);
 
-                // 팝업 생성 후 이벤트 핸들러 직결 보정
                 setTimeout(() => {
                     const btn = document.getElementById(`popup-save-btn-${lookupKey}`);
                     if (btn) {
@@ -309,7 +321,6 @@
             });
         }
 
-        // 지도 텍스트 툴팁 렌더링 함수
         function applyCustomTooltip(layer, originalName, lookupKey) {
             const alias = aliasStorage[lookupKey];
             const content = alias 
@@ -323,7 +334,6 @@
             });
         }
 
-        // 별칭 상태 저장 및 동적 뷰 리프래시
         function executeSaveAlias(lookupKey, originalName, value, layer) {
             if (value) {
                 aliasStorage[lookupKey] = value;
