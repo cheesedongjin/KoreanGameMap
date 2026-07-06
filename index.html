@@ -4,402 +4,1363 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>대한민국 행정구역 별칭 커스텀 지도</title>
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
+        :root {
+            --bg: #f8fafc;
+            --panel: rgba(255, 255, 255, 0.96);
+            --panel-solid: #ffffff;
+            --text: #0f172a;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --soft: #f1f5f9;
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-soft: #dbeafe;
+            --danger: #ef4444;
+            --danger-soft: #fee2e2;
+            --shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
         }
+
         body, html {
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #f8fafc;
+            background: var(--bg);
+            color: var(--text);
         }
+
+        body.dark {
+            --bg: #020617;
+            --panel: rgba(15, 23, 42, 0.94);
+            --panel-solid: #0f172a;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --line: #334155;
+            --soft: #1e293b;
+            --primary-soft: rgba(37, 99, 235, 0.22);
+            --shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+        }
+
+        button, input, select {
+            font: inherit;
+        }
+
+        button {
+            border: none;
+            cursor: pointer;
+        }
+
         #map {
             width: 100%;
             height: 100%;
             z-index: 1;
+            background: var(--bg);
         }
-        /* 컨트롤 패널 유저 인터페이스 */
-        .control-panel {
+
+        .top-panel {
             position: absolute;
-            top: 20px;
+            top: 18px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 10px 16px;
-            border-radius: 40px;
-            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
             display: flex;
-            gap: 12px;
             align-items: center;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            gap: 10px;
+            max-width: calc(100vw - 24px);
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 999px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            white-space: nowrap;
         }
+
         .panel-section {
             display: flex;
             align-items: center;
             gap: 8px;
         }
+
         .panel-label {
             font-size: 13px;
-            font-weight: 700;
-            color: #475569;
-            white-space: nowrap;
+            font-weight: 800;
+            color: var(--muted);
         }
+
         .btn-group {
             display: flex;
-            background: #f1f5f9;
+            gap: 4px;
             padding: 4px;
-            border-radius: 20px;
+            border-radius: 999px;
+            background: var(--soft);
         }
-        .btn-level {
-            padding: 6px 16px;
-            border: none;
-            background: transparent;
-            border-radius: 16px;
-            cursor: pointer;
+
+        .btn-level,
+        .icon-btn,
+        .small-btn,
+        .primary-btn,
+        .danger-btn {
+            border-radius: 999px;
             font-size: 13px;
-            font-weight: 600;
-            color: #64748b;
-            transition: all 0.2s ease;
+            font-weight: 750;
+            transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
         }
+
+        .btn-level {
+            padding: 7px 15px;
+            background: transparent;
+            color: var(--muted);
+        }
+
         .btn-level.active {
-            background: #2563eb;
+            background: var(--primary);
             color: #ffffff;
-            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
         }
-        /* 팝업 스타일 */
+
+        .icon-btn {
+            width: 34px;
+            height: 34px;
+            display: inline-grid;
+            place-items: center;
+            background: var(--soft);
+            color: var(--text);
+        }
+
+        .icon-btn:hover,
+        .small-btn:hover,
+        .primary-btn:hover,
+        .danger-btn:hover,
+        .btn-level:hover {
+            transform: translateY(-1px);
+        }
+
+        .side-panel {
+            position: absolute;
+            top: 82px;
+            right: 18px;
+            bottom: 18px;
+            z-index: 900;
+            width: 360px;
+            max-width: calc(100vw - 36px);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 24px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(12px);
+            transition: transform 0.22s ease, opacity 0.22s ease;
+        }
+
+        .side-panel.collapsed {
+            transform: translateX(calc(100% + 24px));
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .side-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .side-title {
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: -0.2px;
+        }
+
+        .side-subtitle {
+            margin-top: 2px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-box input,
+        .popup-input {
+            width: 100%;
+            outline: none;
+            color: var(--text);
+            background: var(--panel-solid);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            transition: border 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .search-box input {
+            padding: 12px 42px 12px 14px;
+            font-size: 14px;
+            font-weight: 650;
+        }
+
+        .search-box input:focus,
+        .popup-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .kbd {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 3px 7px;
+            border-radius: 7px;
+            background: var(--soft);
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .toggle-card {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 10px;
+            border-radius: 14px;
+            background: var(--soft);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .toggle-card input {
+            accent-color: var(--primary);
+        }
+
+        .side-scroll {
+            min-height: 0;
+            overflow: auto;
+            padding-right: 2px;
+        }
+
+        .side-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .side-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 99px;
+        }
+
+        body.dark .side-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 4px 0 8px;
+            font-size: 12px;
+            font-weight: 900;
+            color: var(--muted);
+            letter-spacing: 0.02em;
+        }
+
+        .result-list,
+        .alias-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .result-card,
+        .alias-card {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel-solid);
+        }
+
+        .result-card {
+            cursor: pointer;
+        }
+
+        .result-card:hover,
+        .alias-card:hover {
+            border-color: rgba(37, 99, 235, 0.55);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .card-name {
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--text);
+            word-break: keep-all;
+        }
+
+        .card-alias {
+            margin-top: 2px;
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--primary);
+            word-break: break-word;
+        }
+
+        .card-meta {
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 750;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .small-btn,
+        .primary-btn,
+        .danger-btn {
+            padding: 7px 10px;
+            background: var(--soft);
+            color: var(--text);
+        }
+
+        .primary-btn {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .primary-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .danger-btn {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+        .row-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .utility-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .empty-state {
+            padding: 16px;
+            border: 1px dashed var(--line);
+            border-radius: 16px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+            background: rgba(148, 163, 184, 0.08);
+        }
+
+        .status-bar {
+            position: absolute;
+            left: 18px;
+            bottom: 18px;
+            z-index: 850;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            max-width: min(650px, calc(100vw - 390px));
+        }
+
+        .status-chip {
+            padding: 8px 11px;
+            border-radius: 999px;
+            background: var(--panel);
+            color: var(--muted);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+            backdrop-filter: blur(8px);
+            font-size: 12px;
+            font-weight: 850;
+        }
+
+        .toast {
+            position: absolute;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%) translateY(20px);
+            z-index: 2000;
+            max-width: calc(100vw - 32px);
+            padding: 11px 16px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.92);
+            color: #ffffff;
+            box-shadow: var(--shadow);
+            font-size: 13px;
+            font-weight: 800;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .loading-shield {
+            position: absolute;
+            inset: 0;
+            z-index: 9999;
+            display: grid;
+            place-items: center;
+            background: rgba(248, 250, 252, 0.62);
+            color: #1e293b;
+            font-size: 16px;
+            font-weight: 900;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 0.18s ease;
+        }
+
+        body.dark .loading-shield {
+            background: rgba(2, 6, 23, 0.55);
+            color: #e2e8f0;
+        }
+
+        .loading-shield.hidden {
+            opacity: 0;
+        }
+
         .alias-popup .leaflet-popup-content-wrapper {
             padding: 4px;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border-radius: 18px;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.25);
+            background: var(--panel-solid);
+            color: var(--text);
         }
+
+        .alias-popup .leaflet-popup-tip {
+            background: var(--panel-solid);
+        }
+
         .popup-container {
+            min-width: 270px;
             padding: 12px;
-            min-width: 240px;
         }
+
         .popup-orig-name {
-            font-size: 11px;
-            font-weight: 600;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .popup-alias-display {
-            font-size: 24px;
-            font-weight: 800;
-            color: #2563eb;
-            margin: 6px 0 16px 0;
-            line-height: 1.2;
-            word-break: break-all;
-        }
-        .popup-input-group {
             display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 850;
+            color: var(--muted);
+            letter-spacing: 0.02em;
+        }
+
+        .popup-alias-display {
+            margin: 8px 0 14px;
+            color: var(--primary);
+            font-size: 24px;
+            font-weight: 950;
+            line-height: 1.18;
+            word-break: break-word;
+        }
+
+        .popup-input-group {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
             gap: 6px;
         }
+
         .popup-input {
-            flex: 1;
-            padding: 8px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
+            padding: 9px 11px;
+            border-radius: 10px;
             font-size: 13px;
-            color: #1e293b;
-            outline: none;
+            font-weight: 650;
         }
-        .popup-input:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+
+        .popup-help {
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 650;
         }
-        .popup-btn {
-            padding: 8px 14px;
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-        }
-        .popup-btn:hover {
-            background: #1d4ed8;
-        }
-        /* 지도 내 상시 표시 툴팁 레이아웃 */
+
         .label-tooltip {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
-            font-weight: 700;
-            color: #1e293b;
-            text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff;
-            text-align: center;
+            color: #0f172a;
             font-size: 11px;
-            pointer-events: none; /* 툴팁이 맵 마우스 이벤트를 가로채지 않도록 방지 */
+            font-weight: 800;
+            text-align: center;
+            text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff;
+            pointer-events: none;
         }
+
+        body.dark .label-tooltip {
+            color: #e2e8f0;
+            text-shadow: -2px -2px 0 #020617, 2px -2px 0 #020617, -2px 2px 0 #020617, 2px 2px 0 #020617;
+        }
+
         .tooltip-alias {
             display: block;
-            font-size: 16px;
-            color: #2563eb;
-            font-weight: 900;
             margin-top: 2px;
+            color: var(--primary);
+            font-size: 16px;
+            font-weight: 950;
             letter-spacing: -0.3px;
         }
-        /* 로딩 인디케이터 */
-        .loading-shield {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(248, 250, 252, 0.7);
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: 700;
-            color: #1e293b;
-            font-size: 16px;
-            pointer-events: none; /* 부드러운 이동을 위해 로딩 중 조작 허용 */
-            transition: opacity 0.2s ease;
+
+
+        .temp-hatch-region {
+            fill: url(#temp-upper-hatch-light) !important;
+            pointer-events: none !important;
+            cursor: default !important;
         }
-        .loading-shield.hidden {
-            opacity: 0;
+
+        body.dark .temp-hatch-region {
+            fill: url(#temp-upper-hatch-dark) !important;
+        }
+
+        .selection-overlay-region {
+            pointer-events: none !important;
+        }
+
+        .normal-region {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .leaflet-temp-pane,
+        .leaflet-selection-pane {
+            pointer-events: none !important;
+        }
+
+        .leaflet-normal-pane {
+            pointer-events: auto !important;
+        }
+
+        .leaflet-normal-pane path.normal-region,
+        .leaflet-normal-pane path.leaflet-interactive {
+            pointer-events: auto !important;
+            cursor: pointer;
+        }
+
+        .leaflet-container {
+            font: inherit;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        @media (max-width: 860px) {
+            .top-panel {
+                left: 12px;
+                right: 12px;
+                transform: none;
+                justify-content: space-between;
+                border-radius: 22px;
+                flex-wrap: wrap;
+            }
+
+            .panel-label {
+                display: none;
+            }
+
+            .btn-level {
+                padding-inline: 12px;
+            }
+
+            .side-panel {
+                top: auto;
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+                width: auto;
+                max-width: none;
+                max-height: 56vh;
+                border-radius: 22px;
+            }
+
+            .side-panel.collapsed {
+                transform: translateY(calc(100% + 24px));
+            }
+
+            .status-bar {
+                left: 10px;
+                bottom: calc(56vh + 22px);
+                max-width: calc(100vw - 20px);
+            }
+
+            .status-chip {
+                font-size: 11px;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .top-panel {
+                gap: 6px;
+                padding: 8px;
+            }
+
+            .btn-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .btn-level {
+                flex: 1;
+            }
+
+            .options-grid,
+            .utility-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
 
-<div id="loading" class="loading-shield hidden">행정구역 경계 데이터 로드 중...</div>
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute; left:-9999px; top:-9999px; overflow:hidden;">
+    <defs>
+        <pattern id="temp-upper-hatch-light" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="8" height="8" fill="#e5e7eb"></rect>
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#94a3b8" stroke-width="2" opacity="0.62"></line>
+        </pattern>
+        <pattern id="temp-upper-hatch-dark" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="8" height="8" fill="#1e293b"></rect>
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#64748b" stroke-width="2" opacity="0.72"></line>
+        </pattern>
+    </defs>
+</svg>
 
-<div class="control-panel">
+<div id="loading" class="loading-shield hidden">행정구역 경계 데이터 로드 중...</div>
+<div id="toast" class="toast"></div>
+
+<div class="top-panel">
     <div class="panel-section">
-        <span class="panel-label">행정구역 레벨</span>
+        <span class="panel-label">행정구역</span>
         <div class="btn-group">
-            <button id="btn-sido" class="btn-level" onclick="changeLevel('sido')">시도</button>
-            <button id="btn-sgg" class="btn-level" onclick="changeLevel('sgg')">시군구</button>
-            <button id="btn-emd" class="btn-level active" onclick="changeLevel('emd')">읍면동</button>
+            <button id="btn-sido" class="btn-level" type="button">시도</button>
+            <button id="btn-sgg" class="btn-level" type="button">시군구</button>
+            <button id="btn-emd" class="btn-level active" type="button">읍면동</button>
         </div>
     </div>
+    <div class="panel-section">
+        <button id="btn-home" class="icon-btn" type="button" title="전국 보기">⌂</button>
+        <button id="btn-theme" class="icon-btn" type="button" title="지도 테마 변경">◐</button>
+        <button id="btn-panel" class="icon-btn" type="button" title="검색/별칭 패널 열기">☰</button>
+    </div>
+</div>
+
+<div id="side-panel" class="side-panel">
+    <div class="side-header">
+        <div>
+            <div class="side-title">검색 · 별칭 관리</div>
+            <div class="side-subtitle">Ctrl/⌘ + K로 빠른 검색</div>
+        </div>
+        <button id="btn-close-panel" class="icon-btn" type="button" title="패널 닫기">×</button>
+    </div>
+
+    <div class="search-box">
+        <input id="region-search" type="search" placeholder="지역명, 별칭, 행정코드 검색" autocomplete="off">
+        <span class="kbd">Ctrl K</span>
+    </div>
+
+    <div class="options-grid">
+        <label class="toggle-card"><input id="toggle-labels" type="checkbox" checked> 지도 라벨 표시</label>
+        <label class="toggle-card"><input id="toggle-lod" type="checkbox" checked> 자동 간소화</label>
+        <label class="toggle-card"><input id="toggle-only-alias" type="checkbox"> 별칭 지역만 검색</label>
+        <label class="toggle-card"><input id="toggle-click-zoom" type="checkbox" checked> 검색 후 확대</label>
+    </div>
+
+    <div class="side-scroll">
+        <div class="section-title">
+            <span>검색 결과</span>
+            <span id="search-count">0</span>
+        </div>
+        <div id="search-results" class="result-list">
+            <div class="empty-state">검색어를 입력하면 시도, 시군구, 읍면동 전체에서 찾아줍니다.</div>
+        </div>
+
+        <div style="height: 14px;"></div>
+
+        <div class="section-title">
+            <span>저장된 별칭</span>
+            <span id="alias-count">0</span>
+        </div>
+        <div id="alias-list" class="alias-list"></div>
+    </div>
+
+    <div class="utility-grid">
+        <button id="btn-export" class="primary-btn" type="button">별칭 내보내기</button>
+        <button id="btn-import" class="small-btn" type="button">별칭 가져오기</button>
+        <button id="btn-cache-clear" class="small-btn" type="button">지도 캐시 초기화</button>
+        <button id="btn-reset-alias" class="danger-btn" type="button">별칭 전체 삭제</button>
+    </div>
+    <input id="import-file" class="file-input" type="file" accept="application/json,.json">
+</div>
+
+<div id="status-bar" class="status-bar">
+    <div id="status-level" class="status-chip">선택: 읍면동</div>
+    <div id="status-render" class="status-chip">렌더: 준비 중</div>
+    <div id="status-alias" class="status-chip">별칭 0개</div>
 </div>
 
 <div id="map"></div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
     import * as adk from "https://esm.sh/admdongkor";
 
-    // 1. 지도 초기화
-    const map = L.map('map', { 
-        zoomControl: false,
-        preferCanvas: true // 성능 최적화를 위해 Canvas 렌더러 강제 활성화
-    }).setView([36.2, 127.8], 7);
-    
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    const LEVELS = ['sido', 'sgg', 'emd'];
+    const LEVEL_LABEL = {
+        sido: '시도',
+        sgg: '시군구',
+        emd: '읍면동'
+    };
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
-    }).addTo(map);
-
-    // 2. 상태 관리 및 데이터 캐시 메모리 딕셔너리
-    let currentLevel = 'emd';   
-    let geojsonLayer = null;
-    const CACHE_NAME = 'admdongkor-geojson-cache-v1';
-    const geoJsonMemoryCache = {}; // 매번 캐시 스토리지 여는 비용 절감을 위한 메모리 캐시
+    const CACHE_NAME = 'admdongkor-geojson-cache-v2';
+    const ALIAS_KEY = 'adk_local_aliases';
+    const ALIAS_META_KEY = 'adk_local_alias_meta';
+    const THEME_KEY = 'adk_map_theme';
 
     const versions = adk.versions();
     const latestVersionKey = versions[versions.length - 1];
-    const aliasStorage = JSON.parse(localStorage.getItem('adk_local_aliases')) || {};
 
-    // 3. 레벨 변경 탭 연동
-    window.changeLevel = function(level) {
+    let currentLevel = 'emd';
+    let currentTileMode = localStorage.getItem(THEME_KEY) || 'light';
+    let geojsonLayer = null;
+    let tempGeojsonLayer = null;
+    let normalGeojsonLayer = null;
+    let aliasGeojsonLayer = null;
+    let selectedLookupKey = null;
+    let selectedLevel = null;
+    let selectedRegionName = '';
+    let selectedPopupLatLng = null;
+    let selectedLayer = null;
+    let selectionOverlayLayer = null;
+    let selectionOverlaySequence = 0;
+    let ignoreMapClickUntil = 0;
+    let renderSequence = 0;
+    let stackRefreshFrame = 0;
+    let hoveredLayerState = null;
+    let aliasFeatureLayers = [];
+    let searchIndexBuilt = false;
+
+    const geoJsonMemoryCache = {};
+    const featureBoundsCache = new WeakMap();
+    const featureIndexByLevel = new Map();
+    const searchIndex = [];
+
+    const aliasStorage = safeParseJson(localStorage.getItem(ALIAS_KEY), {});
+    const aliasMetaStorage = safeParseJson(localStorage.getItem(ALIAS_META_KEY), {});
+
+    const $ = (selector) => document.querySelector(selector);
+    const loadingEl = $('#loading');
+    const toastEl = $('#toast');
+    const sidePanelEl = $('#side-panel');
+    const searchInputEl = $('#region-search');
+    const searchResultsEl = $('#search-results');
+    const aliasListEl = $('#alias-list');
+    const searchCountEl = $('#search-count');
+    const aliasCountEl = $('#alias-count');
+    const statusLevelEl = $('#status-level');
+    const statusRenderEl = $('#status-render');
+    const statusAliasEl = $('#status-alias');
+
+    if (currentTileMode === 'dark') {
+        document.body.classList.add('dark');
+    }
+
+    const map = L.map('map', {
+        zoomControl: false,
+        preferCanvas: false,
+        minZoom: 6,
+        maxZoom: 18
+    }).setView([36.2, 127.8], 7);
+
+    // 역할별 전용 pane을 사용해 클릭 대상과 표시 순서를 완전히 분리한다.
+    // temp: 임시 상위 행정구역(빗금, 클릭 불가)
+    // normal: 실제 클릭 가능한 행정구역
+    // selection: 노랑 선택 오버레이(항상 위, 클릭 불가)
+    const tempPane = map.createPane('tempPane');
+    const normalPane = map.createPane('normalPane');
+    const selectionPane = map.createPane('selectionPane');
+
+    tempPane.style.zIndex = '410';
+    normalPane.style.zIndex = '420';
+    selectionPane.style.zIndex = '440';
+    tempPane.style.pointerEvents = 'none';
+    normalPane.style.pointerEvents = 'auto';
+    selectionPane.style.pointerEvents = 'none';
+
+    const tempRenderer = L.svg({ pane: 'tempPane', padding: 0.5 });
+    const normalRenderer = L.svg({ pane: 'normalPane', padding: 0.5 });
+    const selectionRenderer = L.svg({ pane: 'selectionPane', padding: 0.5 });
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    const lightTile = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        maxZoom: 20
+    });
+
+    const darkTile = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        maxZoom: 20
+    });
+
+    if (currentTileMode === 'dark') {
+        darkTile.addTo(map);
+    } else {
+        lightTile.addTo(map);
+    }
+
+    bindUiEvents();
+    renderAliasList();
+    updateStatus();
+    boot();
+
+    async function boot() {
+        showLoading(true);
+        try {
+            await getGeoJsonData('sido');
+            await getGeoJsonData('sgg');
+            renderCurrentView();
+            requestIdleCallbackSafe(async () => {
+                await getGeoJsonData('emd');
+                await buildSearchIndex();
+                runSearch();
+                renderAliasList();
+            });
+        } catch (error) {
+            console.error(error);
+            showToast('지도 데이터를 불러오지 못했습니다. 네트워크를 확인해 주세요.');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    function bindUiEvents() {
+        $('#btn-sido').addEventListener('click', () => changeLevel('sido'));
+        $('#btn-sgg').addEventListener('click', () => changeLevel('sgg'));
+        $('#btn-emd').addEventListener('click', () => changeLevel('emd'));
+        $('#btn-home').addEventListener('click', fitKorea);
+        $('#btn-panel').addEventListener('click', () => sidePanelEl.classList.toggle('collapsed'));
+        $('#btn-close-panel').addEventListener('click', () => sidePanelEl.classList.add('collapsed'));
+        $('#btn-theme').addEventListener('click', toggleTheme);
+        $('#btn-export').addEventListener('click', exportAliases);
+        $('#btn-import').addEventListener('click', () => $('#import-file').click());
+        $('#import-file').addEventListener('change', importAliases);
+        $('#btn-cache-clear').addEventListener('click', clearMapCache);
+        $('#btn-reset-alias').addEventListener('click', resetAliases);
+
+        $('#toggle-labels').addEventListener('change', renderCurrentView);
+        $('#toggle-lod').addEventListener('change', renderCurrentView);
+        $('#toggle-only-alias').addEventListener('change', runSearch);
+        $('#toggle-click-zoom').addEventListener('change', () => {});
+
+        searchInputEl.addEventListener('input', debounce(runSearch, 120));
+        searchResultsEl.addEventListener('click', handleSearchClick);
+        aliasListEl.addEventListener('click', handleAliasListClick);
+
+        map.on('moveend zoomend', debounce(renderCurrentView, 70));
+        map.on('click', () => {
+            if (performance.now() < ignoreMapClickUntil) return;
+            if (hoveredLayerState) {
+                restoreLayerStyle(hoveredLayerState);
+                hoveredLayerState = null;
+            }
+            clearSelectedRegion();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            const key = event.key.toLowerCase();
+            if ((event.ctrlKey || event.metaKey) && key === 'k') {
+                event.preventDefault();
+                sidePanelEl.classList.remove('collapsed');
+                searchInputEl.focus();
+                searchInputEl.select();
+            }
+            if (event.key === 'Escape') {
+                map.closePopup();
+                searchInputEl.blur();
+            }
+        });
+    }
+
+    function changeLevel(level) {
         currentLevel = level;
-        document.querySelectorAll('.btn-level').forEach(b => b.classList.remove('active'));
-        document.getElementById(`btn-${level}`).classList.add('active');
+        clearSelectedRegion({ skipLayerReset: true });
+        for (const item of LEVELS) {
+            $(`#btn-${item}`).classList.toggle('active', item === level);
+        }
+        updateStatus();
         renderCurrentView();
-    };
+    }
 
-    // 4. 줌 레벨 및 뷰 상태에 따른 데이터 소스 로드 (전역 캐싱 전략)
     async function getGeoJsonData(level) {
         if (geoJsonMemoryCache[level]) return geoJsonMemoryCache[level];
 
         const cacheKey = `https://local.admdongkor.internal/${latestVersionKey}/${level}`;
-        try {
-            const cache = await caches.open(CACHE_NAME);
-            let cachedResponse = await cache.match(cacheKey);
-            let geoData;
+        let geoData = null;
 
-            if (cachedResponse) {
-                geoData = await cachedResponse.json();
-            } else {
-                document.getElementById('loading').classList.remove('hidden');
-                geoData = await adk.get(latestVersionKey, level, { detail: false });
-                const responseToCache = new Response(JSON.stringify(geoData), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                await cache.put(cacheKey, responseToCache);
+        try {
+            if ('caches' in window) {
+                const cache = await caches.open(CACHE_NAME);
+                const cachedResponse = await cache.match(cacheKey);
+                if (cachedResponse) {
+                    geoData = await cachedResponse.json();
+                }
             }
-            geoJsonMemoryCache[level] = geoData;
-            return geoData;
-        } catch (e) {
-            console.error("캐시 로드 실패, 라이브러리 다이렉트 호출:", e);
-            return await adk.get(latestVersionKey, level, { detail: false });
-        } finally {
-            document.getElementById('loading').classList.add('hidden');
+        } catch (error) {
+            console.warn('브라우저 캐시 읽기 실패:', error);
         }
+
+        if (!geoData) {
+            showLoading(true);
+            geoData = await adk.get(latestVersionKey, level, { detail: false });
+            try {
+                if ('caches' in window) {
+                    const cache = await caches.open(CACHE_NAME);
+                    await cache.put(cacheKey, new Response(JSON.stringify(geoData), {
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                }
+            } catch (error) {
+                console.warn('브라우저 캐시 저장 실패:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        geoData.features.forEach((feature) => {
+            feature.__level = level;
+            feature.__lookupKey = getLookupKey(feature);
+            feature.__displayName = getDisplayName(feature);
+        });
+
+        geoJsonMemoryCache[level] = geoData;
+        indexFeaturesForLevel(level, geoData.features);
+        return geoData;
     }
 
-    // 5. 핵심: 현재 줌 상태와 보이는 영역 영역(Bounding Box)에 맞게 레이어 계산 후 그리기
-    async function renderCurrentView() {
-        const currentZoom = map.getZoom();
+    function indexFeaturesForLevel(level, features) {
+        const mapForLevel = new Map();
+        for (const feature of features) {
+            const key = getLookupKey(feature);
+            if (key) mapForLevel.set(String(key), feature);
+        }
+        featureIndexByLevel.set(level, mapForLevel);
+    }
+
+    function resolveRenderLevel() {
+        const zoom = map.getZoom();
+        const autoLod = $('#toggle-lod').checked;
         let targetRenderLevel = currentLevel;
         let isTemporaryUpperLevel = false;
 
-        // 줌 조건에 따른 동적 LOD 레벨 스위칭 알고리즘
-        if (currentLevel === 'emd') {
-            if (currentZoom <= 8) {
-                targetRenderLevel = 'sido';
-                isTemporaryUpperLevel = true;
-            } else if (currentZoom > 8 && currentZoom <= 11) {
-                targetRenderLevel = 'sgg';
-                isTemporaryUpperLevel = true;
-            }
-        } else if (currentLevel === 'sgg') {
-            if (currentZoom <= 8) {
-                targetRenderLevel = 'sido';
-                isTemporaryUpperLevel = true;
-            }
-        }
-
-        // 렌더링할 타겟 레벨 전체 데이터 획득
-        const fullGeoJson = await getGeoJsonData(targetRenderLevel);
-        
-        if (geojsonLayer) {
-            map.removeLayer(geojsonLayer);
-        }
-
-        // 현재 화면 눈에 보이는 영역 경계 좌표(Bounds) 추출
-        const mapBounds = map.getBounds();
-
-        // 바운딩 박스 필터링: 화면 범위 내에 교차하는 피처만 메모리상에서 골라냄
-        const filteredFeatures = fullGeoJson.features.filter(feature => {
-            if (!feature.geometry) return false;
-            
-            // 단순화를 위해 피처의 좌표 배열 일부 혹은 전체 바운더리가 맵 스크린 내에 충족하는지 체크
-            // Leaflet의 L.geoJSON 내부 파서 연산을 최적화하기 위해 경계 근사 체크
-            return true; 
-        });
-
-        const filteredGeoJson = {
-            type: "FeatureCollection",
-            features: filteredFeatures
-        };
-
-        // 레이어화 및 이벤트 주입
-        geojsonLayer = L.geoJSON(filteredGeoJson, {
-            style: (feature) => styleFeature(feature, targetRenderLevel, isTemporaryUpperLevel),
-            onEachFeature: (feature, layer) => onEachFeature(feature, layer, targetRenderLevel, isTemporaryUpperLevel),
-            filter: function(feature) {
-                // 더 정확한 지오메트리 스크린 교차 필터링 (가벼운 Bounding Box 연산)
-                // 좌표 하나라도 맵 범위 내에 있다면 그리기
-                if(feature.geometry.type === "Polygon") {
-                    return feature.geometry.coordinates[0].some(coord => mapBounds.contains(L.latLng(coord[1], coord[0])));
-                } else if(feature.geometry.type === "MultiPolygon") {
-                    return feature.geometry.coordinates.some(poly => 
-                        poly[0].some(coord => mapBounds.contains(L.latLng(coord[1], coord[0])))
-                    );
+        if (autoLod) {
+            if (currentLevel === 'emd') {
+                if (zoom <= 8) {
+                    targetRenderLevel = 'sido';
+                    isTemporaryUpperLevel = true;
+                } else if (zoom <= 11) {
+                    targetRenderLevel = 'sgg';
+                    isTemporaryUpperLevel = true;
                 }
-                return true;
+            } else if (currentLevel === 'sgg' && zoom <= 8) {
+                targetRenderLevel = 'sido';
+                isTemporaryUpperLevel = true;
             }
-        }).addTo(map);
+        }
+
+        return { targetRenderLevel, isTemporaryUpperLevel };
     }
 
-    // 6. 스타일 엔진
-    function styleFeature(feature, renderLevel, isTemp) {
-        const p = feature.properties;
-        const code = p.emdcd || p.sggcd || p.sidocd;
-        const lookupKey = code || p.emdnm || p.sggnm || p.sidonm;
-        
-        // 중요: 임시 상위 레벨 뷰일때는 별칭 하이라이트를 먹이지 않음
-        const hasAlias = !isTemp && aliasStorage[lookupKey];
+    async function renderCurrentView() {
+        const seq = ++renderSequence;
+        const { targetRenderLevel, isTemporaryUpperLevel } = resolveRenderLevel();
+        const fullGeoJson = await getGeoJsonData(targetRenderLevel);
+        if (seq !== renderSequence) return;
 
-        // 임시 상위 레벨일 때와 원래 레벨일 때의 스타일 분기
+        const mapBounds = map.getBounds().pad(0.18);
+        const filteredFeatures = fullGeoJson.features.filter((feature) => {
+            if (!feature.geometry) return false;
+            const bounds = getFeatureBounds(feature);
+            return bounds && bounds.isValid() && bounds.intersects(mapBounds);
+        });
+
+        if (hoveredLayerState) {
+            restoreLayerStyle(hoveredLayerState);
+            hoveredLayerState = null;
+        }
+
+        if (geojsonLayer) {
+            geojsonLayer.remove();
+            geojsonLayer = null;
+        }
+        tempGeojsonLayer = null;
+        normalGeojsonLayer = null;
+        aliasGeojsonLayer = null;
+
+        geojsonLayer = L.layerGroup().addTo(map);
+        aliasFeatureLayers = [];
+        hoveredLayerState = null;
+
+        const makeCollection = (features) => ({
+            type: 'FeatureCollection',
+            features
+        });
+
+        if (isTemporaryUpperLevel) {
+            // 임시 상위 행정구역은 완전한 배경 레이어다.
+            // pane 자체의 pointer-events를 none으로 두어 어떤 경우에도 클릭/호버를 가로채지 않는다.
+            tempGeojsonLayer = L.geoJSON(makeCollection(filteredFeatures), {
+                pane: 'tempPane',
+                renderer: tempRenderer,
+                interactive: false,
+                bubblingMouseEvents: false,
+                style: (feature) => styleFeature(feature, targetRenderLevel, true),
+                onEachFeature: (feature, layer) => onEachFeature(feature, layer, targetRenderLevel, true)
+            }).addTo(geojsonLayer);
+        } else {
+            // 정상 레이어는 하나의 클릭 가능 레이어로만 둔다.
+            // 별칭 지역을 별도 GeoJSON 레이어로 중복 생성하지 않으면, 위쪽 오버레이가 기본 클릭을 막는 문제가 사라진다.
+            normalGeojsonLayer = L.geoJSON(makeCollection(filteredFeatures), {
+                pane: 'normalPane',
+                renderer: normalRenderer,
+                interactive: true,
+                bubblingMouseEvents: false,
+                style: (feature) => styleFeature(feature, targetRenderLevel, false),
+                onEachFeature: (feature, layer) => onEachFeature(feature, layer, targetRenderLevel, false)
+            }).addTo(geojsonLayer);
+
+            aliasGeojsonLayer = null;
+        }
+        refreshSelectionOverlay();
+        scheduleLayerStackingRefresh();
+        updateStatus(targetRenderLevel, filteredFeatures.length, isTemporaryUpperLevel);
+    }
+
+    function styleFeature(feature, renderLevel, isTemp) {
+        const lookupKey = getLookupKey(feature);
+        const hasAlias = !isTemp && Boolean(aliasStorage[lookupKey]);
+
         if (isTemp) {
             return {
-                fillColor: '#f1f5f9', // 차분한 회색 바탕
-                weight: renderLevel === 'sido' ? 2 : 1.2,
+                fillColor: document.body.classList.contains('dark') ? '#1e293b' : '#e5e7eb',
+                weight: renderLevel === 'sido' ? 2 : 1.25,
                 opacity: 1,
-                color: '#94a3b8',    // 진한 회색 테두리
-                fillOpacity: 0.6     // 뒤의 배경지도가 살짝 비치는 투명도
+                color: document.body.classList.contains('dark') ? '#64748b' : '#94a3b8',
+                fillOpacity: 0.88,
+                className: 'temp-hatch-region'
             };
         }
 
-        // 원래 레벨일 때의 기본 스타일 (기존 유지)
         return {
-            fillColor: hasAlias ? '#dbeafe' : '#ffffff',
+            fillColor: hasAlias ? '#dbeafe' : (document.body.classList.contains('dark') ? '#0f172a' : '#ffffff'),
             weight: renderLevel === 'sido' ? 2.5 : renderLevel === 'sgg' ? 1.6 : 1,
             opacity: 1,
-            color: hasAlias ? '#2563eb' : '#cbd5e1',
-            fillOpacity: hasAlias ? 0.6 : 0.1
+            color: hasAlias ? '#2563eb' : (document.body.classList.contains('dark') ? '#475569' : '#cbd5e1'),
+            fillOpacity: hasAlias ? 0.64 : (document.body.classList.contains('dark') ? 0.1 : 0.12)
         };
     }
 
-    // 7. 팝업 및 이벤트 위임 바인딩
-    function onEachFeature(feature, layer, renderLevel, isTemp) {
-        const p = feature.properties;
-        const name = p.emdnm || p.sggnm || p.sidonm || "알 수 없는 지역";
-        const code = p.emdcd || p.sggcd || p.sidocd;
-        const lookupKey = code || name;
+    function selectedFeatureStyle(feature) {
+        const level = selectedLevel || feature.__level || currentLevel;
+        return {
+            fillColor: '#fef08a',
+            weight: level === 'sido' ? 3.2 : 2.7,
+            opacity: 1,
+            color: '#f97316',
+            fillOpacity: 0.7,
+            className: 'selection-overlay-region'
+        };
+    }
 
-        // 툴팁 노출 제어: 임시 상위 레벨일 때는 텍스트 뒤에 별칭을 붙이지 않음
-        applyCustomTooltip(layer, name, lookupKey, isTemp);
-
-        // 중요: 임시 상위 레벨 구조일 때는 클릭과 마우스 오버 효과를 아예 막아버림
-        if (isTemp) {
-            return; 
-        }
-
-        layer.on('click', function(e) {
-            const currentAlias = aliasStorage[lookupKey] || "";
-            const popupHtml = `
-                <div class="popup-container">
-                    <div class="popup-orig-name">${name}</div>
-                    <div class="popup-alias-display">${currentAlias || "(별칭 없음)"}</div>
-                    <div class="popup-input-group">
-                        <input type="text" class="popup-input" id="popup-input-${lookupKey}" value="${currentAlias}" placeholder="지정할 별칭 입력">
-                        <button class="popup-btn" id="popup-save-btn-${lookupKey}">저장</button>
-                    </div>
-                </div>
-            `;
-            layer.bindPopup(popupHtml, { className: 'alias-popup' }).openPopup(e.latlng);
-
-            setTimeout(() => {
-                const btn = document.getElementById(`popup-save-btn-${lookupKey}`);
-                if (btn) {
-                    btn.onclick = function() {
-                        const inputVal = document.getElementById(`popup-input-${lookupKey}`).value.trim();
-                        executeSaveAlias(lookupKey, name, inputVal, layer);
-                    };
-                }
-            }, 50);
-        });
-
-        layer.on('mouseover', () => {
-            layer.setStyle({ fillOpacity: 0.4, weight: currentLevel === 'emd' ? 2 : 3 });
-        });
-        layer.on('mouseout', () => {
-            geojsonLayer.resetStyle(layer);
+    function scheduleLayerStackingRefresh() {
+        if (stackRefreshFrame) return;
+        stackRefreshFrame = requestAnimationFrame(() => {
+            stackRefreshFrame = 0;
+            refreshLayerStacking();
         });
     }
 
-    function applyCustomTooltip(layer, originalName, lookupKey, isTemp) {
+    function refreshLayerStacking() {
+        // pane z-index로 큰 순서를 고정하고, 같은 normal pane 안에서는 별칭 파랑만 앞으로 올린다.
+        // 임시 빗금 < 일반 회색 < 별칭 파랑 < 선택 노랑
+        if (tempGeojsonLayer) {
+            try { tempGeojsonLayer.bringToBack(); } catch (error) { /* ignore */ }
+        }
+        for (const layer of aliasFeatureLayers) {
+            try { layer.bringToFront(); } catch (error) { /* ignore */ }
+        }
+        if (selectionOverlayLayer) {
+            try { selectionOverlayLayer.bringToFront(); } catch (error) { /* ignore */ }
+        }
+    }
+
+    function clearSelectedRegion(options = {}) {
+        const previousKey = selectedLookupKey;
+        if (!previousKey && !selectionOverlayLayer) return;
+
+        selectedLookupKey = null;
+        selectedLevel = null;
+        selectedRegionName = '';
+        selectedPopupLatLng = null;
+        selectedLayer = null;
+
+        if (selectionOverlayLayer) {
+            try { selectionOverlayLayer.remove(); } catch (error) { /* ignore */ }
+            selectionOverlayLayer = null;
+        }
+
+        if (!options.keepPopup) {
+            map.closePopup();
+        }
+
+        if (options.skipLayerReset) return;
+        scheduleLayerStackingRefresh();
+    }
+
+    async function refreshSelectionOverlay() {
+        const seq = ++selectionOverlaySequence;
+
+        if (selectionOverlayLayer) {
+            try { selectionOverlayLayer.remove(); } catch (error) { /* ignore */ }
+            selectionOverlayLayer = null;
+        }
+
+        if (!selectedLookupKey || !selectedLevel) {
+            scheduleLayerStackingRefresh();
+            return;
+        }
+
+        const feature = await findFeature(selectedLevel, selectedLookupKey);
+        if (seq !== selectionOverlaySequence) return;
+        if (!feature || !selectedLookupKey || !selectedLevel) return;
+
+        selectionOverlayLayer = L.geoJSON(feature, {
+            pane: 'selectionPane',
+            renderer: selectionRenderer,
+            interactive: false,
+            bubblingMouseEvents: false,
+            style: selectedFeatureStyle,
+            onEachFeature: (overlayFeature, layer) => {
+                layer.on('add', () => {
+                    const el = layer.getElement?.();
+                    if (el) {
+                        el.classList.add('selection-overlay-region');
+                        el.classList.remove('leaflet-interactive');
+                        el.style.pointerEvents = 'none';
+                    }
+                });
+            }
+        }).addTo(map);
+
+        scheduleLayerStackingRefresh();
+    }
+
+    function setSelectedRegion(feature, level, popupLatLng = null) {
+        selectedLookupKey = getLookupKey(feature);
+        selectedLevel = level;
+        selectedRegionName = getDisplayName(feature);
+        selectedPopupLatLng = popupLatLng || getFeatureBounds(feature)?.getCenter() || map.getCenter();
+        selectedLayer = null;
+        refreshSelectionOverlay();
+        openSelectedPopup();
+    }
+
+    function makePopupHtml(lookupKey, name, level) {
+        const currentAlias = aliasStorage[lookupKey] || '';
+        return `
+            <div class="popup-container" data-key="${escapeAttr(lookupKey)}" data-name="${escapeAttr(name)}" data-level="${escapeAttr(level)}">
+                <div class="popup-orig-name">
+                    <span>${escapeHtml(name)}</span>
+                    <span class="badge">${LEVEL_LABEL[level]}</span>
+                </div>
+                <div class="popup-alias-display">${currentAlias ? escapeHtml(currentAlias) : '(별칭 없음)'}</div>
+                <div class="popup-input-group">
+                    <input type="text" class="popup-input" value="${escapeAttr(currentAlias)}" placeholder="지정할 별칭 입력">
+                    <button class="primary-btn popup-save" type="button">저장</button>
+                    <button class="danger-btn popup-delete" type="button">삭제</button>
+                </div>
+                <div class="popup-help">Enter 저장 · 빈칸 저장 또는 삭제 버튼으로 제거 · 빈 지도 클릭 시 선택 해제</div>
+            </div>
+        `;
+    }
+
+    function openSelectedPopup() {
+        if (!selectedLookupKey || !selectedLevel || !selectedPopupLatLng) return;
+        const name = selectedRegionName || selectedLookupKey;
+        L.popup({
+            className: 'alias-popup',
+            closeOnClick: false,
+            autoClose: true,
+            keepInView: false
+        })
+            .setLatLng(selectedPopupLatLng)
+            .setContent(makePopupHtml(selectedLookupKey, name, selectedLevel))
+            .openOn(map);
+        setTimeout(() => bindPopupEvents(selectedLookupKey, name, selectedLevel), 0);
+    }
+
+    function onEachFeature(feature, layer, renderLevel, isTemp) {
+        const name = getDisplayName(feature);
+        const lookupKey = getLookupKey(feature);
+        layer.__renderLevel = renderLevel;
+        layer.__isTemporaryRender = isTemp;
+
+        applyCustomTooltip(layer, feature, renderLevel, isTemp);
+
+        if (isTemp) {
+            // 임시 상위 행정구역은 배경용 빗금 레이어로만 사용한다.
+            // 클릭, 팝업, 호버, 파랑/노랑 강조를 전부 막는다.
+            layer.options.interactive = false;
+            layer.on('add', () => {
+                const el = layer.getElement?.();
+                if (el) {
+                    el.classList.add('temp-hatch-region');
+                    el.classList.remove('leaflet-interactive');
+                    el.style.pointerEvents = 'none';
+                }
+            });
+            return;
+        }
+
+        layer.on('add', () => {
+            const el = layer.getElement?.();
+            if (el) {
+                el.classList.add('normal-region');
+                el.style.pointerEvents = 'auto';
+            }
+            if (aliasStorage[lookupKey]) {
+                aliasFeatureLayers.push(layer);
+                try { layer.bringToFront(); } catch (error) { /* ignore */ }
+            }
+        });
+
+        layer.on('click', (event) => {
+            ignoreMapClickUntil = performance.now() + 500;
+            if (event.originalEvent) {
+                L.DomEvent.stopPropagation(event.originalEvent);
+                L.DomEvent.preventDefault(event.originalEvent);
+            }
+            setSelectedRegion(feature, renderLevel, event.latlng);
+        });
+
+        layer.on('mouseover', () => {
+            if (hoveredLayerState && hoveredLayerState.layer !== layer) {
+                restoreLayerStyle(hoveredLayerState);
+            }
+            hoveredLayerState = { layer, feature, renderLevel };
+
+            const baseStyle = styleFeature(feature, renderLevel, false);
+            layer.setStyle({
+                ...baseStyle,
+                weight: Math.max(baseStyle.weight + 0.8, renderLevel === 'emd' ? 2 : 3),
+                fillOpacity: aliasStorage[lookupKey] ? 0.78 : (document.body.classList.contains('dark') ? 0.2 : 0.24)
+            });
+            scheduleLayerStackingRefresh();
+        });
+
+        layer.on('mouseout', () => {
+            if (hoveredLayerState && hoveredLayerState.layer === layer) {
+                restoreLayerStyle(hoveredLayerState);
+                hoveredLayerState = null;
+            } else {
+                layer.setStyle(styleFeature(feature, renderLevel, false));
+            }
+            scheduleLayerStackingRefresh();
+        });
+    }
+
+    function restoreLayerStyle(state) {
+        if (!state || !state.layer || !state.feature) return;
+        try {
+            state.layer.setStyle(styleFeature(state.feature, state.renderLevel, false));
+            if (aliasStorage[getLookupKey(state.feature)]) {
+                state.layer.bringToFront();
+            }
+        } catch (error) {
+            // 레이어가 이미 제거된 경우 무시한다.
+        }
+    }
+
+    function bindPopupEvents(lookupKey, originalName, level) {
+        const popupEl = document.querySelector('.alias-popup .popup-container');
+        if (!popupEl || popupEl.dataset.key !== String(lookupKey)) return;
+        const input = popupEl.querySelector('.popup-input');
+        const saveBtn = popupEl.querySelector('.popup-save');
+        const deleteBtn = popupEl.querySelector('.popup-delete');
+
+        const save = () => executeSaveAlias(lookupKey, originalName, input.value.trim(), level);
+        const remove = () => executeSaveAlias(lookupKey, originalName, '', level);
+
+        saveBtn.addEventListener('click', save);
+        deleteBtn.addEventListener('click', remove);
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') save();
+            if (event.key === 'Escape') map.closePopup();
+        });
+        input.focus();
+        input.select();
+    }
+
+    function applyCustomTooltip(layer, feature, renderLevel, isTemp) {
+        if (!$('#toggle-labels').checked) return;
+
+        const zoom = map.getZoom();
+        const originalName = getDisplayName(feature);
+        const lookupKey = getLookupKey(feature);
         const alias = !isTemp ? aliasStorage[lookupKey] : null;
-        const content = alias 
-            ? `${originalName}<span class="tooltip-alias">${alias}</span>`
-            : originalName;
+
+        if (!alias && renderLevel === 'emd' && zoom < 12) return;
+        if (!alias && renderLevel === 'sgg' && zoom < 8) return;
+
+        const content = alias
+            ? `${escapeHtml(originalName)}<span class="tooltip-alias">${escapeHtml(alias)}</span>`
+            : escapeHtml(originalName);
 
         layer.bindTooltip(content, {
             permanent: true,
@@ -408,30 +1369,408 @@
         });
     }
 
-    function executeSaveAlias(lookupKey, originalName, value, layer) {
+    function executeSaveAlias(lookupKey, originalName, value, level) {
         if (value) {
             aliasStorage[lookupKey] = value;
+            aliasMetaStorage[lookupKey] = {
+                name: originalName,
+                level,
+                code: lookupKey,
+                updatedAt: new Date().toISOString()
+            };
+            showToast('별칭을 저장했습니다.');
         } else {
             delete aliasStorage[lookupKey];
+            delete aliasMetaStorage[lookupKey];
+            showToast('별칭을 삭제했습니다.');
         }
-        localStorage.setItem('adk_local_aliases', JSON.stringify(aliasStorage));
-        renderCurrentView(); // 저장이 완료되면 화면을 다시 계산하여 갱신
-        map.closePopup();
+
+        persistAliases();
+        renderAliasList();
+        runSearch();
+        renderCurrentView();
+        if (selectedLookupKey === String(lookupKey)) {
+            selectedLevel = level;
+            selectedRegionName = originalName;
+            refreshSelectionOverlay();
+            openSelectedPopup();
+        }
     }
 
-    // 8. 맵 관찰자 이벤트리스너 등록
-    // 유저가 지도를 움직이거나(moveend), 줌 배율을 바꿀 때(zoomend)마다 최적화 영역을 새로 계산
-    map.on('moveend zoomend', () => {
-        renderCurrentView();
-    });
+    async function buildSearchIndex() {
+        if (searchIndexBuilt) return;
+        searchIndex.length = 0;
 
-    // 3개 레벨 사전 내부 백그라운드 캐싱 지시 연출
-    (async () => {
-        await getGeoJsonData('sido');
-        await getGeoJsonData('sgg');
-        await getGeoJsonData('emd');
+        for (const level of LEVELS) {
+            const geoData = await getGeoJsonData(level);
+            for (const feature of geoData.features) {
+                const lookupKey = getLookupKey(feature);
+                const name = getDisplayName(feature);
+                searchIndex.push({
+                    level,
+                    key: lookupKey,
+                    name,
+                    code: lookupKey,
+                    haystack: normalizeText(`${name} ${lookupKey} ${aliasStorage[lookupKey] || ''}`)
+                });
+            }
+        }
+        searchIndexBuilt = true;
+    }
+
+    async function runSearch() {
+        await buildSearchIndex();
+        const keyword = normalizeText(searchInputEl.value);
+        const onlyAlias = $('#toggle-only-alias').checked;
+
+        if (!keyword && !onlyAlias) {
+            searchCountEl.textContent = '0';
+            searchResultsEl.innerHTML = '<div class="empty-state">검색어를 입력하면 시도, 시군구, 읍면동 전체에서 찾아줍니다.</div>';
+            return;
+        }
+
+        const results = searchIndex
+            .filter((item) => {
+                const hasAlias = Boolean(aliasStorage[item.key]);
+                if (onlyAlias && !hasAlias) return false;
+                if (!keyword) return hasAlias;
+                const dynamicHaystack = normalizeText(`${item.name} ${item.code} ${aliasStorage[item.key] || ''}`);
+                return dynamicHaystack.includes(keyword);
+            })
+            .slice(0, 40);
+
+        searchCountEl.textContent = String(results.length);
+
+        if (!results.length) {
+            searchResultsEl.innerHTML = '<div class="empty-state">검색 결과가 없습니다. 다른 이름이나 행정코드로 검색해 보세요.</div>';
+            return;
+        }
+
+        searchResultsEl.innerHTML = results.map((item) => renderSearchResult(item)).join('');
+    }
+
+    function renderSearchResult(item) {
+        const alias = aliasStorage[item.key] || '';
+        return `
+            <div class="result-card" data-level="${escapeAttr(item.level)}" data-key="${escapeAttr(item.key)}">
+                <div>
+                    <div class="card-name">${escapeHtml(item.name)}</div>
+                    ${alias ? `<div class="card-alias">${escapeHtml(alias)}</div>` : ''}
+                    <div class="card-meta"><span class="badge">${LEVEL_LABEL[item.level]}</span><span>${escapeHtml(item.code)}</span></div>
+                </div>
+                <button class="small-btn" type="button">이동</button>
+            </div>
+        `;
+    }
+
+    function handleSearchClick(event) {
+        const card = event.target.closest('.result-card');
+        if (!card) return;
+        goToFeature(card.dataset.level, card.dataset.key);
+    }
+
+    async function goToFeature(level, key) {
+        const feature = await findFeature(level, key);
+        if (!feature) {
+            showToast('해당 지역을 찾지 못했습니다.');
+            return;
+        }
+
+        currentLevel = level;
+        selectedLookupKey = key;
+        selectedLevel = level;
+        selectedRegionName = getDisplayName(feature);
+        selectedPopupLatLng = getFeatureBounds(feature)?.getCenter() || map.getCenter();
+        selectedLayer = null;
+        refreshSelectionOverlay();
+        openSelectedPopup();
+        scheduleLayerStackingRefresh();
+        for (const item of LEVELS) {
+            $(`#btn-${item}`).classList.toggle('active', item === level);
+        }
+
+        const bounds = getFeatureBounds(feature);
+        if (bounds?.isValid() && $('#toggle-click-zoom').checked) {
+            map.fitBounds(bounds.pad(0.18), { animate: true, maxZoom: level === 'emd' ? 14 : level === 'sgg' ? 11 : 8 });
+        } else {
+            renderCurrentView();
+        }
+
+        updateStatus();
+    }
+
+    async function findFeature(level, key) {
+        const geoData = await getGeoJsonData(level);
+        const directHit = featureIndexByLevel.get(level)?.get(String(key));
+        if (directHit) return directHit;
+        return geoData.features.find((feature) => {
+            return getLookupKey(feature) === String(key) || getDisplayName(feature) === String(key);
+        }) || null;
+    }
+
+    function renderAliasList() {
+        const entries = Object.entries(aliasStorage)
+            .filter(([, alias]) => typeof alias === 'string' && alias.trim())
+            .sort((a, b) => {
+                const metaA = aliasMetaStorage[a[0]]?.updatedAt || '';
+                const metaB = aliasMetaStorage[b[0]]?.updatedAt || '';
+                return metaB.localeCompare(metaA);
+            });
+
+        aliasCountEl.textContent = String(entries.length);
+        statusAliasEl.textContent = `별칭 ${entries.length}개`;
+
+        if (!entries.length) {
+            aliasListEl.innerHTML = '<div class="empty-state">지도에서 지역을 클릭해 별칭을 저장하면 여기에 모입니다.</div>';
+            return;
+        }
+
+        aliasListEl.innerHTML = entries.map(([key, alias]) => {
+            const meta = aliasMetaStorage[key] || {};
+            const level = meta.level || inferLevelFromCode(key) || 'emd';
+            const name = meta.name || key;
+            return `
+                <div class="alias-card" data-level="${escapeAttr(level)}" data-key="${escapeAttr(key)}">
+                    <div>
+                        <div class="card-name">${escapeHtml(name)}</div>
+                        <div class="card-alias">${escapeHtml(alias)}</div>
+                        <div class="card-meta"><span class="badge">${LEVEL_LABEL[level] || level}</span><span>${escapeHtml(key)}</span></div>
+                    </div>
+                    <div class="row-actions">
+                        <button class="small-btn alias-go" type="button">이동</button>
+                        <button class="danger-btn alias-delete" type="button">삭제</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function handleAliasListClick(event) {
+        const card = event.target.closest('.alias-card');
+        if (!card) return;
+        const level = card.dataset.level;
+        const key = card.dataset.key;
+
+        if (event.target.closest('.alias-delete')) {
+            const meta = aliasMetaStorage[key] || {};
+            executeSaveAlias(key, meta.name || key, '', level);
+            return;
+        }
+
+        goToFeature(level, key);
+    }
+
+    function exportAliases() {
+        const payload = {
+            app: 'korea-admin-alias-map',
+            version: 2,
+            admdongkorVersion: latestVersionKey,
+            exportedAt: new Date().toISOString(),
+            aliases: aliasStorage,
+            meta: aliasMetaStorage
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `korea-aliases-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast('별칭 JSON을 내보냈습니다.');
+    }
+
+    async function importAliases(event) {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            const importedAliases = parsed.aliases || parsed;
+            const importedMeta = parsed.meta || {};
+            const reservedKeys = new Set(['app', 'version', 'admdongkorVersion', 'exportedAt', 'aliases', 'meta']);
+            let importedCount = 0;
+
+            for (const [key, value] of Object.entries(importedAliases)) {
+                if (reservedKeys.has(key)) continue;
+                if (typeof value !== 'string') continue;
+                const cleanAlias = value.trim();
+                if (!cleanAlias) continue;
+                aliasStorage[key] = cleanAlias;
+                aliasMetaStorage[key] = importedMeta[key] || aliasMetaStorage[key] || {
+                    name: key,
+                    level: inferLevelFromCode(key) || 'emd',
+                    code: key,
+                    updatedAt: new Date().toISOString()
+                };
+                importedCount++;
+            }
+
+            persistAliases();
+            renderAliasList();
+            runSearch();
+            renderCurrentView();
+            showToast(`${importedCount}개 별칭을 가져왔습니다.`);
+        } catch (error) {
+            console.error(error);
+            showToast('JSON 파일을 읽지 못했습니다.');
+        }
+    }
+
+    async function clearMapCache() {
+        try {
+            if ('caches' in window) await caches.delete(CACHE_NAME);
+            for (const key of Object.keys(geoJsonMemoryCache)) delete geoJsonMemoryCache[key];
+            featureIndexByLevel.clear();
+            searchIndex.length = 0;
+            searchIndexBuilt = false;
+            showToast('지도 캐시를 초기화했습니다.');
+            await boot();
+        } catch (error) {
+            console.error(error);
+            showToast('캐시 초기화 중 문제가 생겼습니다.');
+        }
+    }
+
+    function resetAliases() {
+        if (!confirm('저장된 별칭을 모두 삭제할까요?')) return;
+        for (const key of Object.keys(aliasStorage)) delete aliasStorage[key];
+        for (const key of Object.keys(aliasMetaStorage)) delete aliasMetaStorage[key];
+        persistAliases();
+        clearSelectedRegion({ skipLayerReset: true });
+        renderAliasList();
+        runSearch();
         renderCurrentView();
-    })();
+        showToast('모든 별칭을 삭제했습니다.');
+    }
+
+    function toggleTheme() {
+        currentTileMode = currentTileMode === 'light' ? 'dark' : 'light';
+        localStorage.setItem(THEME_KEY, currentTileMode);
+        document.body.classList.toggle('dark', currentTileMode === 'dark');
+
+        if (currentTileMode === 'dark') {
+            map.removeLayer(lightTile);
+            darkTile.addTo(map);
+        } else {
+            map.removeLayer(darkTile);
+            lightTile.addTo(map);
+        }
+        renderCurrentView();
+    }
+
+    function fitKorea() {
+        clearSelectedRegion({ skipLayerReset: true });
+        map.setView([36.2, 127.8], 7, { animate: true });
+        renderCurrentView();
+    }
+
+    function getLookupKey(feature) {
+        const p = feature.properties || {};
+        return String(p.emdcd || p.sggcd || p.sidocd || p.adm_cd || p.code || getDisplayName(feature));
+    }
+
+    function getDisplayName(feature) {
+        const p = feature.properties || {};
+        return String(p.emdnm || p.sggnm || p.sidonm || p.adm_nm || p.name || '알 수 없는 지역');
+    }
+
+    function getFeatureBounds(feature) {
+        if (featureBoundsCache.has(feature)) return featureBoundsCache.get(feature);
+        const bounds = L.latLngBounds();
+        extendBoundsFromCoordinates(feature.geometry?.coordinates, bounds);
+        featureBoundsCache.set(feature, bounds);
+        return bounds;
+    }
+
+    function extendBoundsFromCoordinates(coords, bounds) {
+        if (!coords) return;
+        if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+            bounds.extend(L.latLng(coords[1], coords[0]));
+            return;
+        }
+        for (const item of coords) {
+            extendBoundsFromCoordinates(item, bounds);
+        }
+    }
+
+    function inferLevelFromCode(code) {
+        const text = String(code || '');
+        if (text.length <= 2) return 'sido';
+        if (text.length <= 5) return 'sgg';
+        return 'emd';
+    }
+
+    function persistAliases() {
+        localStorage.setItem(ALIAS_KEY, JSON.stringify(aliasStorage));
+        localStorage.setItem(ALIAS_META_KEY, JSON.stringify(aliasMetaStorage));
+        updateStatus();
+    }
+
+    function updateStatus(renderLevel = null, count = null, isTemp = false) {
+        statusLevelEl.textContent = `선택: ${LEVEL_LABEL[currentLevel]}`;
+        if (renderLevel) {
+            const tempText = isTemp ? ' · 자동 간소화' : '';
+            statusRenderEl.textContent = `렌더: ${LEVEL_LABEL[renderLevel]} ${count ?? 0}개${tempText}`;
+        }
+        statusAliasEl.textContent = `별칭 ${Object.keys(aliasStorage).length}개`;
+    }
+
+    function showLoading(show) {
+        loadingEl.classList.toggle('hidden', !show);
+    }
+
+    let toastTimer = null;
+    function showToast(message) {
+        clearTimeout(toastTimer);
+        toastEl.textContent = message;
+        toastEl.classList.add('show');
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1700);
+    }
+
+    function normalizeText(value) {
+        return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function safeParseJson(value, fallback) {
+        try {
+            return value ? JSON.parse(value) : fallback;
+        } catch {
+            return fallback;
+        }
+    }
+
+    function debounce(fn, wait) {
+        let timer = null;
+        return (...args) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn(...args), wait);
+        };
+    }
+
+    function requestIdleCallbackSafe(callback) {
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(callback, { timeout: 1200 });
+        } else {
+            setTimeout(callback, 80);
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function escapeAttr(value) {
+        return escapeHtml(value).replace(/`/g, '&#096;');
+    }
 </script>
 
 </body>
