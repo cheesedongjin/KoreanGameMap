@@ -326,6 +326,18 @@
         // 중요: 임시 상위 레벨 뷰일때는 별칭 하이라이트를 먹이지 않음
         const hasAlias = !isTemp && aliasStorage[lookupKey];
 
+        // 임시 상위 레벨일 때와 원래 레벨일 때의 스타일 분기
+        if (isTemp) {
+            return {
+                fillColor: '#f1f5f9', // 차분한 회색 바탕
+                weight: renderLevel === 'sido' ? 2 : 1.2,
+                opacity: 1,
+                color: '#94a3b8',    // 진한 회색 테두리
+                fillOpacity: 0.6     // 뒤의 배경지도가 살짝 비치는 투명도
+            };
+        }
+
+        // 원래 레벨일 때의 기본 스타일 (기존 유지)
         return {
             fillColor: hasAlias ? '#dbeafe' : '#ffffff',
             weight: renderLevel === 'sido' ? 2.5 : renderLevel === 'sgg' ? 1.6 : 1,
